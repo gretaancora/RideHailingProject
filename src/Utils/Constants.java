@@ -14,9 +14,11 @@ public class Constants {
     /* Probabilities */
     public static final double P_LOSS = 0.1;
     //NON CREDO CHE SERVANO, MI SEMBRA PIÙ UNA SCELTA DETERMINISTICA
-    public static final double P_SMALL = 0.2;
-    public static final double P_MEDIUM = 0.2;
-    public static final double P_SMALL = 0.2;
+    public static final double P_1 = 0.2;
+    public static final double P_2 = 0.2;
+    public static final double P_3 = 0.2;
+    public static final double P_4 = 0.2;
+
 
     /* Arrival rate in rental station (users/sec) */
     public static final double LAMBDA = 12 / 60.0 / 60.0;

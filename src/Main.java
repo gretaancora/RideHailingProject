@@ -1,4 +1,3 @@
-import Model.Sistema;
 import Libs.Rngs;
 import Utils.FileCSVGenerator;
 import java.util.ArrayList;
@@ -20,8 +19,8 @@ import static Utils.Constants.*;
             System.out.println("0 - Finite horizon simulation ");
             System.out.println("1 - Infinite horizon simulation ");
 
-            int simType = getChoice();
-            runSim(simType);
+            int simulationType = getChoice();
+            runSim(simulationType);
         }
 
         public static void runSim(int simulationType) throws Exception {
@@ -42,8 +41,8 @@ import static Utils.Constants.*;
                         rngs.plantSeeds(seedList.get(i));
 
                         /* Start simulation with seed[i] */
-                        Sistema sys = new Sistema(rngs);
-                        sys.simulation(simulationType, seedList.get(i), i + 1);
+                        var sys = new SystemController(rngs);
+                        sys.runFiniteSimulation(seedList.get(i), i + 1);
 
                         /* Generate new seed */
                         if (i + 1 < REPLICATION) {
@@ -59,8 +58,8 @@ import static Utils.Constants.*;
                     break;
                 case 1: /* Infinite horizon */
                     rngs.plantSeeds(SEED);
-                    Sistema sys = new Sistema(rngs);
-                    sys.simulation(simulationType, -1, -1); // -1 is to ignore input
+                    var sys = new SystemController(rngs);
+                    sys.runInfiniteSimulation(SEED);
                     break;
                 default:
                     throw new Exception("Invalid simulation type");

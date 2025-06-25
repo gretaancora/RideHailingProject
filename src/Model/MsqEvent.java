@@ -2,6 +2,15 @@ package Model;
 
 public class MsqEvent {
 
+    public MsqEvent(double time, int i, int i1) {
+    }
+
+    public int getX() {
+    }
+
+    public double getT() {
+    }
+
     public enum EventType {
         ARRIVAL,    // Request arrives
         MATCH,      // Request matched with a vehicle
@@ -10,9 +19,19 @@ public class MsqEvent {
     }
 
     public enum VehicleType {
-        SMALL,
-        MEDIUM,
-        LARGE
+        SMALL(0),
+        MEDIUM(1),
+        LARGE(2);
+
+        private final int type;
+
+        VehicleType(int type) {
+            this.type = type;
+        }
+
+        public int getType() {
+            return type;
+        }
     }
 
     private final double time;            // Event time

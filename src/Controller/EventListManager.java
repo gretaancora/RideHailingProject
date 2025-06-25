@@ -46,22 +46,22 @@ public class EventListManager {
 
         switch (event.getType()) {
             case ARRIVAL:
-                statisticsPerCategory[cat].recordArrival();
+                statisticsPerCategory[cat.getType()].recordArrival();
                 handleArrival(event);
                 break;
             case MATCH:
                 // Es. waitingTime potrebbe venire calcolato altrove e passato qui o da evento
                 double waitingTime = 0; // placeholder
-                statisticsPerCategory[cat].recordMatch(waitingTime);
+                statisticsPerCategory[cat.getType()].recordMatch(waitingTime);
                 handleMatch(event, waitingTime);
                 break;
             case CANCEL:
-                statisticsPerCategory[cat].recordCancellation();
+                statisticsPerCategory[cat.getType()].recordCancellation();
                 handleCancel(event);
                 break;
             case COMPLETE:
                 double serviceTime = 0; // placeholder
-                statisticsPerCategory[cat].recordCompletion(serviceTime);
+                statisticsPerCategory[cat.getType()].recordCompletion(serviceTime);
                 handleCompletion(event, serviceTime);
                 break;
         }

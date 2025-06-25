@@ -1,5 +1,7 @@
 package Model;
 
+//stato e comportamento
+
 public class SimpleCenter implements Center {
     @Override
     public void finiteSimulation() throws Exception {

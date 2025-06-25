@@ -2,23 +2,18 @@ package Utils;
 
 import Libs.Rngs;
 
-import static Utils.Constants.*;
-
 public class Distribution {
     private static Distribution instance = null;
-    private double passengerArrival = 0.0;
-    private double exogenous_park = 0.0;
-    private double exogenous_charge = 0.0;
 
-    private Rngs rngs;
+    private final Rngs rngs;
 
     private Distribution(Rngs rngsToSet) {
         this.rngs = rngsToSet;
     }
 
-    public static Distribution getInstance(Rngs toSet) {
+    public static Distribution getInstance(Rngs rngsToSet) {
         if (instance == null) {
-            instance = new Distribution(toSet);
+            instance = new Distribution(rngsToSet);
         }
         return instance;
     }
@@ -27,57 +22,40 @@ public class Distribution {
         return instance;
     }
 
-    /* Generate an Exponential random variate, use m > 0.0 */
-    public double exponential(double m) {
-        return (-m * Math.log(1.0 - rngs.random()));
+    /** Distribuzione esponenziale per gli arrivi */
+    public double exponential(double lambda) {
+        return -lambda * Math.log(1.0 - rngs.random());
     }
 
-    /** Generate the next arrival time
-     * <ul>
-     *  <li>param 0: user arrival</li>
-     *  <li>param 1: exogenous arrival parking station</li>
-     *  <li>param 2: exogenous arrival charge station</li>
-     * */
-    public double getArrival(int arrivalType) {
-        rngs.selectStream(0);
-        double paramPark = LAMBDA_EXOGENOUS * (1-P_RICARICA);
-        double paramCharge = LAMBDA_EXOGENOUS * P_RICARICA;
-
-        return switch (arrivalType) {
-            case 0 -> /* Passenger arrival at rental station */
-                    passengerArrival = exponential(1.0 / LAMBDA);
-            case 1 -> /* Exogenous arrival at parking station */
-                    exogenous_park = exponential(1.0 / paramPark);
-            case 2 -> /* Exogenous arrival at charge station */
-                    exogenous_charge = exponential(1.0 / paramCharge);
-            default -> throw new IllegalArgumentException("Invalid arrival type");
-        };
+    /** Generatore di gaussiana troncata */
+    public double truncatedNormal(double mean, double stdDev, double min, double max) {
+        double value;
+        do {
+            double u1 = rngs.random();
+            double u2 = rngs.random();
+            double z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            value = mean + stdDev * z;
+        } while (value < min || value > max);
+        return value;
     }
 
-    /** Generate the next service time
-     * <ul>
-     *  <li>param 0: Noleggio</li>
-     *  <li>param 1: Parcheggio</li>
-     *  <li>param 2: Ricarica</li>
-     *  <li>param 3: Strada</li>
-     */
-    public double getService(int serviceType) {
+    /** Servizio tradizionale */
+    public double getServiceTraditional(double mean, double stdDev, double min, double max) {
         rngs.selectStream(1);
+        return truncatedNormal(mean, stdDev, min, max);
+    }
 
-        return switch (serviceType) {
-            case 0 -> /* Rental station */
-                    exponential(RENTAL_SERVICE);
-            case 1 -> /* Parking station */
-                    exponential(PARKING_SERVICE);
-            case 2 -> /* Charging station */
-                    exponential(CHARGING_SERVICE);
-            case 3 -> /* Route station */
-                    exponential(ROUTE_SERVICE);
-            default -> throw new IllegalArgumentException("Invalid service type");
-        };
+    /** Servizio con ride sharing (tempo più lungo) */
+    public double getServiceRideSharing(double mean, double stdDev, double min, double max, double delay) {
+        rngs.selectStream(2);
+        return truncatedNormal(mean, stdDev, min, max) + delay;
     }
 
     public Rngs getRngs() {
         return rngs;
+    }
+
+    public double generateArrivalTime(int index) {
+        exponential(LAMBDA * "P".concat(Integer.toString(index)));
     }
 }
