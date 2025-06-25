@@ -2,7 +2,7 @@ package Model;
 
 public interface Center {
     /* Finite horizon simulation */
-    void finiteSimulation() throws Exception;
+    void finiteSimulation(int e) throws Exception;
 
     /* Infinite horizon simulation */
     void infiniteSimulation();

@@ -1,6 +1,6 @@
 package Model;
 
-public class MsqAggrData {
+public class MsqSum {
 
     private long arrivals; //numero di arrivi
     private long cancelledRequests; //numero richieste cancellate prima del match
@@ -9,7 +9,7 @@ public class MsqAggrData {
     private double sumServiceTime; //service time totale
     private long totalCompleted; // richieste totali completate
 
-    public MsqAggrData(){
+    public MsqSum(){
         this.arrivals = 0;
         this.cancelledRequests = 0;
         this.matchedRequests = 0;

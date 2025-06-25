@@ -1,14 +1,44 @@
 package Model;
 
+import java.util.List;
+
 public class MsqEvent {
 
-    public MsqEvent(double time, int i, int i1) {
+    public static int findOne(List<MsqEvent> event) {
+        int s;
+        int i = 2;
+
+        /* find the index of the first available */
+        while (i < event.size() && event.get(i).x != false)
+            i++;                        /* (idle) server */
+
+        if (i >= event.size()) return -1;
+
+        s = i;
+        while (i < event.size() - 1) {         /* now, check the others to find which   */
+            i++;                        /* has been idle longest                 */
+
+            if ((event.get(i).x == false) && (event.get(i).time < event.get(s).time))
+                s = i;
+        }
+
+        return (s);
     }
 
-    public int getX() {
+    public static int findActiveServers(List<MsqEvent> event) {
+        int count = 0;
+
+        int s = 2;
+        while (s < event.size()) {
+            if (event.get(s).getX() == true) count++;
+
+            s++;
+        }
+
+        return count;
     }
 
-    public double getT() {
+    public void setT(double v) {
     }
 
     public enum EventType {
@@ -21,7 +51,8 @@ public class MsqEvent {
     public enum VehicleType {
         SMALL(0),
         MEDIUM(1),
-        LARGE(2);
+        LARGE(2),
+        RIDESHARING(3);
 
         private final int type;
 
@@ -32,19 +63,43 @@ public class MsqEvent {
         public int getType() {
             return type;
         }
+
+
+        public static VehicleType fromInt(int value) {
+            for (VehicleType type : VehicleType.values()) {
+                if (type.getType() == value) {
+                    return type;
+                }
+            }
+            throw new IllegalArgumentException("Invalid VehicleType value: " + value);
+        }
     }
 
     private final double time;            // Event time
     private final EventType type;         // Type of event
     private final VehicleType vehicleType;
+    private boolean x;
 
-    public MsqEvent(double time, EventType type, VehicleType vehicleType) {
+    public MsqEvent(double time, EventType type, VehicleType vehicleType, boolean x) {
         this.time = time;
         this.type = type;
         this.vehicleType = vehicleType;
+        this.x = x;
+    }
+
+    public boolean getX() {
+        return x;
+    }
+
+    public void setX(boolean x) {
+        this.x = x;
     }
 
     public double getTime() {
+        return time;
+    }
+
+    public double setTime(double time) {
         return time;
     }
 
@@ -74,10 +129,28 @@ public class MsqEvent {
     @Override
     public int hashCode() {
         int result = 17;
-        long temp = Double.doubleToLongBits(time);
-        result = 31 * result + (int)(temp ^ (temp >>> 32));
+        result = 31 * result + Double.hashCode(time);
         result = 31 * result + type.hashCode();
         result = 31 * result + vehicleType.hashCode();
         return result;
+    }
+
+    public static int getNextEvent(List<MsqEvent> eventList){
+        int e;
+        int i = 0;
+
+        while (i < eventList.size() && !eventList.get(i).x)       /* find the index of the first 'active' */
+            i++;                                                /* element in the event list            */
+
+        if (i >= eventList.size()) return -1;
+
+        e = i;
+        while (i < eventList.size() - 1) {         /* now, check the others to find which  */
+            i++;                             /* event type is most imminent          */
+
+            if ((eventList.get(i).x) && (eventList.get(i).time < eventList.get(e).time))
+                e = i;
+        }
+        return (e);
     }
 }

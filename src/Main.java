@@ -1,9 +1,10 @@
+import Controller.SystemController;
 import Libs.Rngs;
 import Utils.FileCSVGenerator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
-import static Model.Sistema.centerList;
+import static Controller.SystemController.centerList;
 import static Utils.Constants.*;
 
     //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
@@ -42,7 +43,7 @@ import static Utils.Constants.*;
 
                         /* Start simulation with seed[i] */
                         var sys = new SystemController(rngs);
-                        sys.runFiniteSimulation(seedList.get(i), i + 1);
+                        sys.simulation(simulationType, seedList.get(i), i + 1);
 
                         /* Generate new seed */
                         if (i + 1 < REPLICATION) {
@@ -59,7 +60,7 @@ import static Utils.Constants.*;
                 case 1: /* Infinite horizon */
                     rngs.plantSeeds(SEED);
                     var sys = new SystemController(rngs);
-                    sys.runInfiniteSimulation(SEED);
+                    sys.simulation(simulationType, -1, -1); // -1 is to ignore input
                     break;
                 default:
                     throw new Exception("Invalid simulation type");

@@ -1,6 +1,9 @@
 package Utils;
 
 import Libs.Rngs;
+import Model.MsqEvent;
+
+import static Utils.Constants.*;
 
 public class Distribution {
     private static Distribution instance = null;
@@ -40,22 +43,32 @@ public class Distribution {
     }
 
     /** Servizio tradizionale */
-    public double getServiceTraditional(double mean, double stdDev, double min, double max) {
+    public double getServiceTraditional() {
         rngs.selectStream(1);
-        return truncatedNormal(mean, stdDev, min, max);
+        return truncatedNormal(TRAD_MEAN, TRAD_STD_DEV, TRAD_MIN, TRAD_MAX);
     }
 
     /** Servizio con ride sharing (tempo più lungo) */
     public double getServiceRideSharing(double mean, double stdDev, double min, double max, double delay) {
         rngs.selectStream(2);
-        return truncatedNormal(mean, stdDev, min, max) + delay;
+        return truncatedNormal(TRAD_MEAN, TRAD_STD_DEV, TRAD_MIN, TRAD_MAX) + DELAY;
     }
 
     public Rngs getRngs() {
         return rngs;
     }
 
-    public double generateArrivalTime(int index) {
-        exponential(LAMBDA * "P".concat(Integer.toString(index)));
+    public double getArrival(MsqEvent.VehicleType vehicleType) {
+
+        return switch (vehicleType) {
+            case SMALL-> /* SMALL */
+                    exponential(LAMBDA*P_SMALL);
+            case MEDIUM -> /* MEDIUM */
+                    exponential(LAMBDA*P_MEDIUM);
+            case LARGE -> /* LARGE */
+                    exponential(LAMBDA*P_LARGE);
+            case RIDESHARING -> /* RIDE SHARING */
+                    exponential(LAMBDA*P_RIDE_SHARING);
+        };
     }
 }

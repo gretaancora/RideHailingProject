@@ -1,10 +1,21 @@
 package Utils;
 
 public class Constants {
-    /* Number of servers in each center */
+    /* Number of servers in each center in ride-sharing */
     public static final int SMALL_SERVER = 60;
     public static final int MEDIUM_SERVER = 15;
     public static final int LARGE_SERVER = 15;
+
+    /* Number of servers in ride-sharing */
+    public static final int SMALL_SERVER_RIDESHARING = 0;
+    public static final int MEDIUM_SERVER_RIDESHARING = 0;
+    public static final int LARGE_SERVER_RIDESHARING= 0;
+
+    /* Total number of servers in simple case */
+    public static final int SMALL_SERVER_TOT = SMALL_SERVER + SMALL_SERVER_RIDESHARING;
+    public static final int MEDIUM_SERVER_TOT = MEDIUM_SERVER + MEDIUM_SERVER_RIDESHARING;
+    public static final int LARGE_SERVER_TOT = LARGE_SERVER + LARGE_SERVER_RIDESHARING;
+
 
     /* Value of Start and Stop time */
     public static final double START = 0.0;
@@ -13,11 +24,20 @@ public class Constants {
 
     /* Probabilities */
     public static final double P_LOSS = 0.1;
-    //NON CREDO CHE SERVANO, MI SEMBRA PIÙ UNA SCELTA DETERMINISTICA
-    public static final double P_1 = 0.2;
-    public static final double P_2 = 0.2;
-    public static final double P_3 = 0.2;
-    public static final double P_4 = 0.2;
+    public static final double P_SMALL = 0.2;
+    public static final double P_MEDIUM = 0.2;
+    public static final double P_LARGE = 0.2;
+    public static final double P_RIDE_SHARING = 0.2;
+
+
+    /* TRADITIONAL_SERVICE */
+
+    public static final double TRAD_STD_DEV = 0.4;
+    public static final double TRAD_MIN = 0.1;
+    public static final double TRAD_MEAN = 0.1;
+    public static final double TRAD_MAX = 0.1;
+    public static final double DELAY = 0.1;
+
 
 
     /* Arrival rate in rental station (users/sec) */

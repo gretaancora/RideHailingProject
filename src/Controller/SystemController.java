@@ -1,178 +1,172 @@
 package Controller;
 
 import Libs.Rngs;
-import Model.MsqEvent;
-import Model.MsqT;
-import Model.SimpleCenter;
+import Model.*;
 import Utils.Distribution;
 
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Properties;
 
+import static Model.MsqEvent.*;
+import static Model.MsqEvent.EventType.*;
 import static Utils.Constants.*;
 
 public class SystemController {
+    long number = 0;                     /* number of jobs in the node         */
+    int e;                               /* next event index                   */
+    int s;                               /* server index                       */
+    long index = 0;                      /* used to count processed jobs       */
+    double area = 0.0;           /* time integrated number in the node */
 
-    private SimpleCenter[] centerTrad = null;
-    private SimpleCenter rideSharingCenter = null;
-    private final Distribution distr;
+    double service;
+
     private final MsqT msqT = new MsqT();
 
-    private double area = 0.0;
-    private int number = 0;
+    private final EventListManager eventListManager;
+    private Distribution distr;
 
-    private final List<MsqEvent> eventList = new ArrayList<>();
+    private final List<MsqEvent> systemList = new ArrayList<>(NODES); //lista globale pari al numero di nodi nel sistema
+    private final List<MsqSum> sumList = new ArrayList<>(NODES + 1); //una in più per le statistiche globali
 
-    private String systemType;
+    public static final List<Center> centerList = new ArrayList<>(); //contiene le istanze di tutti i nodi simulati
 
-    public SystemController(Rngs rngs) throws IOException {
+    public SystemController(Rngs rngs) {
+        centerList.clear();
+
+        eventListManager = EventListManager.getInstance();
         distr = Distribution.getInstance(rngs);
 
-        loadConfig();
+        eventListManager.resetState();
 
-        if ("simple".equalsIgnoreCase(systemType)) {
-            initSimpleCenters();
-        } else if ("sharing".equalsIgnoreCase(systemType)) {
-            initSimpleCenters();
-            initRideSharingCenter();
-        } else {
-            throw new IllegalArgumentException("Unsupported SYSTEM_TYPE: " + systemType);
+        SimpleCenter smallCenter = new SimpleCenter(SMALL_SERVER, VehicleType.SMALL);
+        SimpleCenter mediumCenter = new SimpleCenter(MEDIUM_SERVER, VehicleType.MEDIUM);
+        SimpleCenter largeCenter = new SimpleCenter(LARGE_SERVER, VehicleType.LARGE);
+        RideSharingCenter rideSharingCenter = new RideSharingCenter(SMALL_SERVER_RIDESHARING+MEDIUM_SERVER+LARGE_SERVER, VehicleType.RIDESHARING);
+
+        centerList.addAll(Arrays.asList(smallCenter, mediumCenter, largeCenter, rideSharingCenter));
+
+        for (int i = 0; i < 4; i++) {
+            systemList.add(i, new MsqEvent(0, ARRIVAL, MsqEvent.VehicleType.fromInt(i), true));
         }
 
-        initEventList();
+        //per ogni centro prendiamo l'evento con il time out inferiore
+
+        // Initialize small in system list
+        List<MsqEvent> eventInServiceListSmall = eventListManager.getEventInServiceListSmall();
+        int nextEventSmall = MsqEvent.getNextEvent(eventInServiceListSmall);
+        systemList.set(0, new MsqEvent(eventInServiceListSmall.get(nextEventSmall).getTime(),ARRIVAL, MsqEvent.VehicleType.SMALL,true));
+
+        // Initialize medium in system list
+        List<MsqEvent> eventInServiceListMedium = eventListManager.getEventInServiceListMedium();
+        int nextEventMedium = MsqEvent.getNextEvent(eventInServiceListMedium);
+        systemList.set(1, new MsqEvent(eventInServiceListSmall.get(nextEventSmall).getTime(),ARRIVAL, MsqEvent.VehicleType.MEDIUM,true));
+
+        // Initialize large in system list
+        List<MsqEvent> eventInServiceListLarge = eventListManager.getEventInServiceListLarge();
+        int nextEventLarge = MsqEvent.getNextEvent(eventInServiceListLarge);
+        systemList.set(2, new MsqEvent(eventInServiceListSmall.get(nextEventSmall).getTime(),ARRIVAL, MsqEvent.VehicleType.LARGE,true));
+
+        // Initialize rideSharing in system list
+        List<MsqEvent> eventInServiceListRideSharing = eventListManager.getEventInServiceListRideSharing();
+        int nextEventRideSharing = MsqEvent.getNextEvent(eventInServiceListRideSharing);
+        systemList.set(3, new MsqEvent(eventInServiceListSmall.get(nextEventSmall).getTime(),ARRIVAL, MsqEvent.VehicleType.RIDESHARING,true));
+
+        eventListManager.setSystemEventsList(systemList);
     }
 
-    private void loadConfig() throws IOException {
-        Properties prop = new Properties();
-        try (FileInputStream fis = new FileInputStream("config.properties")) {
-            prop.load(fis);
-            systemType = prop.getProperty("SYSTEM_TYPE", "simple").trim();
-            System.out.println("Loaded SYSTEM_TYPE = " + systemType);
+    public void simulation(int simulationType, long seed, int runNumber) throws Exception {
+        System.out.println("Starting simulation - seed: " + seed);
+
+        switch (simulationType) {
+            case 0:
+                simpleSimulation(seed, runNumber);
+                break;
+            case 1:
+                infiniteSimulation(seed);
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid simulation choice");
         }
     }
 
-    private void initSimpleCenters() {
-        centerTrad = new SimpleCenter[3];
-        for (int i = 0; i < 3; i++) {
-            centerTrad[i] = new SimpleCenter();
-        }
-    }
-
-    private void initRideSharingCenter() {
-        rideSharingCenter = new SimpleCenter();
-    }
-
-    private void initEventList() {
-        eventList.clear();
-
-        //3 centri tradizionali
-        for (int i = 0; i < 3;) {
-            eventList.add(new MsqEvent(distr.generateArrivalTime(++i), 0, i));
-        }
-
-        //centro ride sharing
-        if ("sharing".equalsIgnoreCase(systemType)) {
-            eventList.add(new MsqEvent(distr.generateArrivalTime(4), 0, 3));
-        }
-    }
-
-
-    public void runFiniteSimulation(long seed, int runNumber) throws Exception {
+    /* Finite horizon simulation */
+    public void simpleSimulation(long seed, int runNumber) throws Exception {
         int e;
+        List<MsqEvent> eventList = eventListManager.getSystemEventsList();
 
         while (msqT.getCurrent() < STOP_FIN) {
             if ((e = getNextEvent(eventList)) == -1) break;
 
-            MsqEvent evt = eventList.get(e);
-
-            msqT.setNext(evt.getT());
-            area += (msqT.getNext() - msqT.getCurrent()) * number;
+            msqT.setNext(eventList.get(e).getTime());
+            this.area = this.area + (msqT.getNext() - msqT.getCurrent()) * number;
             msqT.setCurrent(msqT.getNext());
 
-            if (evt.getX() < 3) {
-                centerTrad[evt.getX()].setSeed(seed);
-                centerTrad[evt.getX()].finiteSimulation();
-                centerTrad[evt.getX()].printIteration(true, seed, evt.getX(), runNumber, msqT.getCurrent());
+            if (e < 4) {
+                centerList.get(e).setSeed(seed);
+                centerList.get(e).finiteSimulation(e);
+                centerList.get(e).printIteration(true, seed, e, runNumber, msqT.getCurrent());
 
-            } else if (evt.getX() == 3 && "sharing".equalsIgnoreCase(systemType)) {
-                rideSharingCenter.setSeed(seed);
-                rideSharingCenter.finiteSimulation();
-                rideSharingCenter.printIteration(true, seed, 3, runNumber, msqT.getCurrent());
-
-            } else {
-                throw new Exception("Invalid event index: " + evt.getX());
-            }
-
-            // Rigenero evento con nuovo tempo di arrivo
-            eventList.set(e, new MsqEvent(msqT.getCurrent() + distr.generateArrivalTime(evt.getX()), 0, evt.getX()));
+                eventList = eventListManager.getSystemEventsList();
+            } else throw new Exception("Invalid event");
         }
 
         System.out.println("\n\n");
 
-        for (int i = 0; i < 3; i++) {
-            centerTrad[i].printResult(runNumber, seed);
-        }
-        if ("sharing".equalsIgnoreCase(systemType)) {
-            rideSharingCenter.printResult(runNumber, seed);
-        }
+        for (int i = 0; i < NODES; i++) centerList.get(i).printResult(runNumber, seed);
     }
 
-    public void runInfiniteSimulation(long seed) throws Exception {
+
+    /* Infinite horizon simulation */
+    public void infiniteSimulation(long seed) throws Exception {
         int e;
 
         msqT.setCurrent(START);
         msqT.setNext(START);
 
+        List<MsqEvent> eventList = eventListManager.getSystemEventsList();
+
         while (pendingEvents()) {
             if ((e = getNextEvent(eventList)) == -1) break;
 
-            MsqEvent evt = eventList.get(e);
-
-            msqT.setNext(evt.getT());
-            area += (msqT.getNext() - msqT.getCurrent()) * number;
+            msqT.setNext(eventList.get(e).getTime());
+            this.area = this.area + (msqT.getNext() - msqT.getCurrent()) * number;
             msqT.setCurrent(msqT.getNext());
 
-            if (evt.getX() < 3) {
-                centerTrad[evt.getX()].setSeed(seed);
-                centerTrad[evt.getX()].infiniteSimulation();
-            } else if (evt.getX() == 3 && "sharing".equalsIgnoreCase(systemType)) {
-                rideSharingCenter.setSeed(seed);
-                rideSharingCenter.infiniteSimulation();
-            } else {
-                throw new Exception("Invalid event index: " + evt.getX());
-            }
+            if (e < 4) {
+                centerList.get(e).setSeed(seed);
 
-            // Rigenero evento con nuovo tempo di arrivo
-            eventList.set(e, new MsqEvent(msqT.getCurrent() + distr.generateArrivalTime(evt.getX()), 0, evt.getX()));
+                centerList.get(e).infiniteSimulation();
+                eventList = eventListManager.getSystemEventsList();
+            } else throw new Exception("Invalid event");
         }
 
-        for (int i = 0; i < 3; i++) {
-            centerTrad[i].printFinalStatsStazionario();
-        }
-        if ("sharing".equalsIgnoreCase(systemType)) {
-            rideSharingCenter.printFinalStatsStazionario();
-        }
+        for (int i = 0; i < NODES; i++) centerList.get(i).printFinalStatsStazionario();
     }
 
+    /* Fetch index of most imminent event among all servers */
+    private int getNextEvent(List<MsqEvent> eventList) {
+        double threshold = Double.MAX_VALUE;
+        int e = -1;
+        int i = 0;
+
+        for (MsqEvent event : eventList) {
+            if (event.getTime() < threshold && event.getX()) {
+                threshold = event.getTime();
+                e = i;
+            }
+            i++;
+        }
+        return e;
+    }
+
+    /* Check if there is a centre that has not processed B*K events */
     private boolean pendingEvents() {
-        // Adatta la logica di terminazione se serve
-        return true;
-    }
-
-    private int getNextEvent(List<MsqEvent> events) {
-        double min = Double.MAX_VALUE;
-        int index = -1;
-
-        for (int i = 0; i < events.size(); i++) {
-            double t = events.get(i).getT();
-            if (t > 0 && t < min) {
-                min = t;
-                index = i;
+        for (Center center : centerList) {
+            if (center.getJobInBatch() <= B * K) {
+                return true;
             }
         }
-        return index;
+        return false;
     }
 }
