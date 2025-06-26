@@ -22,4 +22,7 @@ public interface Center {
     void printFinalStatsStazionario();
 
     void printFinalStatsTransitorio();
+
+    void setMsqT(MsqT msqT);
+
 }

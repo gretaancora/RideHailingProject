@@ -28,7 +28,8 @@ public class SimpleCenter implements Center {
 
         eventListManager = EventListManager.getInstance();
         distr = Distribution.getInstance();
-        serverList = new ArrayList<>(i+1);
+        msqT = MsqT.getInstance();
+        serverList = new ArrayList<>(i + 1);
 
         /* Initial servers setup */
         for (s = 0; s < 1 + i; s++) {
@@ -40,7 +41,14 @@ public class SimpleCenter implements Center {
 
         // Add this new event and setting time to arrival time
         serverList.set(0, new MsqEvent(arrival, EventType.ARRIVAL, vehicleType, true));
-        eventListManager.setEventInServiceListSmall(serverList);
+
+        // per ogni tipologia
+        switch (vehicleType) {
+            case SMALL -> eventListManager.setEventInServiceListSmall(serverList);
+            case MEDIUM -> eventListManager.setEventInServiceListMedium(serverList);
+            case LARGE -> eventListManager.setEventInServiceListLarge(serverList);
+            default -> throw new IllegalArgumentException("Unsupported vehicle type: " + vehicleType);
+        }
     }
 
     @Override
@@ -51,7 +59,7 @@ public class SimpleCenter implements Center {
         List<MsqEvent> eventList = null;
         int e;
 
-        switch(i){
+        switch (i) {
             case 0 -> eventList = eventListManager.getEventInServiceListSmall();
             case 1 -> eventList = eventListManager.getEventInServiceListMedium();
             case 2 -> eventList = eventListManager.getEventInServiceListLarge();
@@ -72,14 +80,14 @@ public class SimpleCenter implements Center {
 
             eventList.getFirst().setTime(msqT.getCurrent() + distr.getArrival(VehicleType.fromInt(i)));     /* Get new arrival from exogenous (external) arrival */
 
-           /* if (e == 1) eventList.get(1).setX(0);  da gestire */
+            /* if (e == 1) eventList.get(1).setX(0);  da gestire */
 
             s = MsqEvent.findOne(eventList);    /* Search for an idle Server */
             if (s != -1) {                      /* Found an idle server*/
                 service = distr.getServiceTraditional();
 
                 /* Set server as active */
-                eventList.get(s).setT(msqT.getCurrent() +  service);  /* Let's calculate the end of service time */
+                eventList.get(s).setT(msqT.getCurrent() + service);  /* Let's calculate the end of service time */
                 eventList.get(s).setX(true);
 
             }
@@ -96,6 +104,7 @@ public class SimpleCenter implements Center {
 
         eventListManager.getSystemEventsList().get(1).setT(eventList.get(nextEvent).getTime());
     }
+
 
     @Override
     public void infiniteSimulation() {
@@ -140,6 +149,10 @@ public class SimpleCenter implements Center {
     @Override
     public void printFinalStatsTransitorio() {
 
+    }
+
+    public void setMsqT(MsqT msqT) {
+        this.msqT = msqT;
     }
 
     public List<MsqEvent> getServerList() {

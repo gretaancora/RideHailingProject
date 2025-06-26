@@ -20,7 +20,7 @@ public class Constants {
     /* Value of Start and Stop time */
     public static final double START = 0.0;
     public static final double STOP_INF = Double.MAX_VALUE; /* Infinite simulation */
-    public static final double STOP_FIN = 86400; /* Finite simulation -> check every 1 day */
+    public static final double STOP_FIN = 10; /* Finite simulation -> check every 1 day */
 
     /* Probabilities */
     public static final double P_LOSS = 0.1;

@@ -4,9 +4,12 @@ import Libs.Rngs;
 import Model.*;
 import Utils.Distribution;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 
 import static Model.MsqEvent.*;
 import static Model.MsqEvent.EventType.*;
@@ -20,11 +23,12 @@ public class SystemController {
     double area = 0.0;           /* time integrated number in the node */
 
     double service;
+    private String systemType;
 
-    private final MsqT msqT = new MsqT();
+    private final MsqT msqT = MsqT.getInstance();
 
     private final EventListManager eventListManager;
-    private Distribution distr;
+    private final Distribution distr;
 
     private final List<MsqEvent> systemList = new ArrayList<>(NODES); //lista globale pari al numero di nodi nel sistema
     private final List<MsqSum> sumList = new ArrayList<>(NODES + 1); //una in più per le statistiche globali
@@ -32,47 +36,94 @@ public class SystemController {
     public static final List<Center> centerList = new ArrayList<>(); //contiene le istanze di tutti i nodi simulati
 
     public SystemController(Rngs rngs) {
+        // Refresh
         centerList.clear();
-
         eventListManager = EventListManager.getInstance();
         distr = Distribution.getInstance(rngs);
-
         eventListManager.resetState();
 
-        SimpleCenter smallCenter = new SimpleCenter(SMALL_SERVER, VehicleType.SMALL);
-        SimpleCenter mediumCenter = new SimpleCenter(MEDIUM_SERVER, VehicleType.MEDIUM);
-        SimpleCenter largeCenter = new SimpleCenter(LARGE_SERVER, VehicleType.LARGE);
-        RideSharingCenter rideSharingCenter = new RideSharingCenter(SMALL_SERVER_RIDESHARING+MEDIUM_SERVER+LARGE_SERVER, VehicleType.RIDESHARING);
+        // Read system type from config.properties
 
-        centerList.addAll(Arrays.asList(smallCenter, mediumCenter, largeCenter, rideSharingCenter));
+        Properties config = new Properties();
+        systemType = "simple"; // default
 
-        for (int i = 0; i < 4; i++) {
-            systemList.add(i, new MsqEvent(0, ARRIVAL, MsqEvent.VehicleType.fromInt(i), true));
+        try (InputStream input = new FileInputStream("src/resources/config.properties")) {
+            config.load(input);
+            systemType = config.getProperty("SYSTEM_TYPE");
+        } catch (IOException e) {
+            System.err.println("Unable to read config.properties. Using default 'simple' system.");
         }
 
-        //per ogni centro prendiamo l'evento con il time out inferiore
+        // Initialize centers based on systemType
+        switch (systemType) {
+            case "simple":
+                addSimpleCenters();
+                break;
+            case "ridesharing":
+                addSimpleCenters();
+                addRideSharingCenter();
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported system type: " + systemType);
+        }
 
-        // Initialize small in system list
-        List<MsqEvent> eventInServiceListSmall = eventListManager.getEventInServiceListSmall();
-        int nextEventSmall = MsqEvent.getNextEvent(eventInServiceListSmall);
-        systemList.set(0, new MsqEvent(eventInServiceListSmall.get(nextEventSmall).getTime(),ARRIVAL, MsqEvent.VehicleType.SMALL,true));
-
-        // Initialize medium in system list
-        List<MsqEvent> eventInServiceListMedium = eventListManager.getEventInServiceListMedium();
-        int nextEventMedium = MsqEvent.getNextEvent(eventInServiceListMedium);
-        systemList.set(1, new MsqEvent(eventInServiceListSmall.get(nextEventSmall).getTime(),ARRIVAL, MsqEvent.VehicleType.MEDIUM,true));
-
-        // Initialize large in system list
-        List<MsqEvent> eventInServiceListLarge = eventListManager.getEventInServiceListLarge();
-        int nextEventLarge = MsqEvent.getNextEvent(eventInServiceListLarge);
-        systemList.set(2, new MsqEvent(eventInServiceListSmall.get(nextEventSmall).getTime(),ARRIVAL, MsqEvent.VehicleType.LARGE,true));
-
-        // Initialize rideSharing in system list
-        List<MsqEvent> eventInServiceListRideSharing = eventListManager.getEventInServiceListRideSharing();
-        int nextEventRideSharing = MsqEvent.getNextEvent(eventInServiceListRideSharing);
-        systemList.set(3, new MsqEvent(eventInServiceListSmall.get(nextEventSmall).getTime(),ARRIVAL, MsqEvent.VehicleType.RIDESHARING,true));
-
+        // Set msqT for each center
+        for (Center center : centerList) {
+            center.setMsqT(this.msqT);
+        }
+        // Initialize systemList with corresponding events
+        initializeSystemEvents();
         eventListManager.setSystemEventsList(systemList);
+    }
+
+
+    //solo tradizionale
+    private void addSimpleCenters() {
+        centerList.add(new SimpleCenter(SMALL_SERVER, VehicleType.SMALL));
+        centerList.add(new SimpleCenter(MEDIUM_SERVER, VehicleType.MEDIUM));
+        centerList.add(new SimpleCenter(LARGE_SERVER, VehicleType.LARGE));
+    }
+
+    //solo ridesharing
+    private void addRideSharingCenter() {
+        centerList.add(new RideSharingCenter(SMALL_SERVER_RIDESHARING + MEDIUM_SERVER + LARGE_SERVER, VehicleType.RIDESHARING));
+    }
+
+    private void initializeSystemEvents() {
+        systemList.clear();
+
+        if (systemType.equals("simple")) {
+            // Solo 3 tipi: SMALL, MEDIUM, LARGE
+            for (int i = 0; i < 3; i++) {
+                systemList.add(new MsqEvent(0, ARRIVAL, MsqEvent.VehicleType.fromInt(i), true));
+            }
+
+            initializeEventIfPresent(MsqEvent.VehicleType.SMALL, eventListManager.getEventInServiceListSmall(), 0);
+            initializeEventIfPresent(MsqEvent.VehicleType.MEDIUM, eventListManager.getEventInServiceListMedium(), 1);
+            initializeEventIfPresent(MsqEvent.VehicleType.LARGE, eventListManager.getEventInServiceListLarge(), 2);
+
+        } else if (systemType.equals("ridesharing")) {
+            // 4 tipi, incluso RIDESHARING
+            for (int i = 0; i < 4; i++) {
+                systemList.add(new MsqEvent(0, ARRIVAL, MsqEvent.VehicleType.fromInt(i), true));
+            }
+
+            initializeEventIfPresent(MsqEvent.VehicleType.SMALL, eventListManager.getEventInServiceListSmall(), 0);
+            initializeEventIfPresent(MsqEvent.VehicleType.MEDIUM, eventListManager.getEventInServiceListMedium(), 1);
+            initializeEventIfPresent(MsqEvent.VehicleType.LARGE, eventListManager.getEventInServiceListLarge(), 2);
+            initializeEventIfPresent(MsqEvent.VehicleType.RIDESHARING, eventListManager.getEventInServiceListRideSharing(), 3);
+
+        } else {
+            throw new IllegalArgumentException("Unsupported system type: " + systemType);
+        }
+    }
+
+    private void initializeEventIfPresent(MsqEvent.VehicleType type, List<MsqEvent> eventList, int index) {
+        if (!eventList.isEmpty()) {
+            int nextEventIdx = MsqEvent.getNextEvent(eventList);
+            MsqEvent nextEvent = eventList.get(nextEventIdx);
+            systemList.set(index, new MsqEvent(nextEvent.getTime(), ARRIVAL, type, true));
+        }
     }
 
     public void simulation(int simulationType, long seed, int runNumber) throws Exception {
@@ -94,9 +145,13 @@ public class SystemController {
     public void simpleSimulation(long seed, int runNumber) throws Exception {
         int e;
         List<MsqEvent> eventList = eventListManager.getSystemEventsList();
+        //la lista di eventi globali
 
         while (msqT.getCurrent() < STOP_FIN) {
             if ((e = getNextEvent(eventList)) == -1) break;
+
+            System.out.println("Before update: msqT=" + msqT + " eventList=" + eventList);
+            System.out.println("Next event index: " + e + " Time: " + eventList.get(e).getTime());
 
             msqT.setNext(eventList.get(e).getTime());
             this.area = this.area + (msqT.getNext() - msqT.getCurrent()) * number;
@@ -105,6 +160,10 @@ public class SystemController {
             if (e < 4) {
                 centerList.get(e).setSeed(seed);
                 centerList.get(e).finiteSimulation(e);
+                //chiamo quella di ogni centro
+
+                System.out.println("After finiteSimulation: eventList=" + eventListManager.getSystemEventsList());
+
                 centerList.get(e).printIteration(true, seed, e, runNumber, msqT.getCurrent());
 
                 eventList = eventListManager.getSystemEventsList();

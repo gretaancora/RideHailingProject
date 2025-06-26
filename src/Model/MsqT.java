@@ -1,16 +1,28 @@
 package Model;
 
-/* Clock di sistema (mantiene il tempo) */
 public class MsqT {
-    private double current; /* Current time */
-    private double next;    /* Next (most imminent) event time  */
-    private double batchTimer;   /* Batch time */
+    private double current;     // Tempo attuale
+    private double next;        // Tempo del prossimo evento
+    private double batchTimer;  // Tempo per batching
 
-    public MsqT() {
+    // Istanza statica (unica) della classe
+    private static MsqT instance;
+
+    // Costruttore privato per evitare istanziazioni esterne
+    private MsqT() {
         this.current = 0;
         this.next = 0;
     }
 
+    // ✅ Metodo per ottenere l'unica istanza
+    public static MsqT getInstance() {
+        if (instance == null) {
+            instance = new MsqT();
+        }
+        return instance;
+    }
+
+    // Getter e Setter
     public double getCurrent() {
         return current;
     }

@@ -11,6 +11,7 @@ public class RideSharingCenter implements Center{
 
     private final List<MsqEvent> serverList;
     private final EventListManager eventListManager;
+    private final MsqT msqT;
     private int s;
     private Distribution distr;
 
@@ -18,6 +19,7 @@ public class RideSharingCenter implements Center{
 
         eventListManager = EventListManager.getInstance();
         distr = Distribution.getInstance();
+        msqT = MsqT.getInstance();
         serverList = new ArrayList<>(i+1);
 
         /* Initial servers setup */
@@ -30,7 +32,7 @@ public class RideSharingCenter implements Center{
 
         // Add this new event and setting time to arrival time
         serverList.set(0, new MsqEvent(arrival, MsqEvent.EventType.ARRIVAL, vehicleType, true));
-        eventListManager.setEventInServiceListSmall(serverList);
+        eventListManager.setEventInServiceListRideSharing(serverList);
     }
 
     @Override
@@ -80,6 +82,11 @@ public class RideSharingCenter implements Center{
 
     @Override
     public void printFinalStatsTransitorio() {
+
+    }
+
+    @Override
+    public void setMsqT(MsqT msqT) {
 
     }
 }
